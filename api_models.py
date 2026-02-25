@@ -36,7 +36,6 @@ def transcribe_audio(audio_path: str, max_retries: int = 3) -> Optional[str]:
         aai.settings.api_key = api_key
         
         config = aai.TranscriptionConfig(
-            speech_model=aai.SpeechModel.best,
             language_code="en",
             punctuate=True,
             format_text=True,

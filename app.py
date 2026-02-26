@@ -614,8 +614,8 @@ def main():
             - Groq: https://console.groq.com/
             """)
     
-    # Main tabs
-    tabs = st.tabs(["🎵 Audio Upload", "▶️ YouTube URL"])
+    # Main tabs with live recording option
+    tabs = st.tabs(["🎵 Audio Upload", "▶️ YouTube URL", "🎙️ Live Recording"])
     
     # Tab 1: Upload Audio
     with tabs[0]:
@@ -703,6 +703,29 @@ def main():
                             st.code(traceback.format_exc())
                     finally:
                         st.session_state.processing = False
+    
+    # Tab 3: Live Recording
+    with tabs[2]:
+        st.markdown('<div class="section-header">🎙️ Record Audio Live</div>', 
+                   unsafe_allow_html=True)
+        
+        from audio_recorder import get_audio_recorder_html, get_recording_instructions
+        
+        # Display instructions
+        st.markdown(get_recording_instructions())
+        
+        # Display audio recorder
+        st.components.v1.html(get_audio_recorder_html(), height=400)
+        
+        st.markdown("""
+            <div class="info-box">
+                <strong>💡 How it works:</strong><br>
+                1. Click record button → speak your lecture<br>
+                2. Click stop → file downloads automatically<br>
+                3. Upload the downloaded file above<br>
+                4. Generate notes!
+            </div>
+        """, unsafe_allow_html=True)
     
     # Results section
     if st.session_state.notes or st.session_state.transcript:

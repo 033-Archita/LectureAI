@@ -6,7 +6,7 @@ import yt_dlp
 
 def download_youtube_audio(url: str, output_dir: Optional[str] = None) -> Optional[str]:
     """
-    Download audio from YouTube video
+    Download audio from YouTube video with fallback mechanisms
     
     Args:
         url: YouTube video URL
@@ -15,63 +15,152 @@ def download_youtube_audio(url: str, output_dir: Optional[str] = None) -> Option
     Returns:
         Path to downloaded audio file or None if failed
     """
-    try:
-        # Use temp directory if not specified
-        if output_dir is None:
-            output_dir = tempfile.gettempdir()
-        
-        # Generate unique filename
-        output_template = os.path.join(output_dir, 'youtube_audio_%(id)s.%(ext)s')
-        
-        # yt-dlp options
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': output_template,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'quiet': False,
-            'no_warnings': False,
-            'extract_flat': False,
-            'nocheckcertificate': True,
-            'ignoreerrors': False,
-            'logtostderr': False,
-            'restrictfilenames': True,
-            'noplaylist': True,
-            'prefer_ffmpeg': True,
+    # Use temp directory if not specified
+    if output_dir is None:
+        output_dir = tempfile.gettempdir()
+    
+    # Generate unique filename
+    output_template = os.path.join(output_dir, 'youtube_audio_%(id)s.%(ext)s')
+    
+    # Try different configurations in order of preference
+    configs = [
+        {
+            'name': 'TV Embedded client (most reliable)',
+            'opts': {
+                'format': 'bestaudio/best',
+                'outtmpl': output_template,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'restrictfilenames': True,
+                'noplaylist': True,
+                'prefer_ffmpeg': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['tv_embedded'],
+                        'player_skip': ['webpage', 'configs'],
+                    }
+                },
+            }
+        },
+        {
+            'name': 'Android client',
+            'opts': {
+                'format': 'bestaudio/best',
+                'outtmpl': output_template,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'restrictfilenames': True,
+                'noplaylist': True,
+                'prefer_ffmpeg': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android'],
+                    }
+                },
+            }
+        },
+        {
+            'name': 'iOS client',
+            'opts': {
+                'format': 'bestaudio/best',
+                'outtmpl': output_template,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'restrictfilenames': True,
+                'noplaylist': True,
+                'prefer_ffmpeg': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['ios'],
+                    }
+                },
+            }
+        },
+        {
+            'name': 'Web client with headers',
+            'opts': {
+                'format': 'bestaudio/best',
+                'outtmpl': output_template,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'restrictfilenames': True,
+                'noplaylist': True,
+                'prefer_ffmpeg': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                }
+            }
         }
-        
-        # Download audio
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Extract info
-            info = ydl.extract_info(url, download=True)
+    ]
+    
+    last_error = None
+    
+    # Try each configuration
+    for config in configs:
+        try:
+            print(f"Attempting download with {config['name']}...")
             
-            if info is None:
-                raise Exception("Failed to extract video information")
-            
-            # Get video ID
-            video_id = info.get('id', 'unknown')
-            
-            # Construct expected filename
-            audio_file = os.path.join(output_dir, f'youtube_audio_{video_id}.mp3')
-            
-            # Check if file exists
-            if os.path.exists(audio_file):
-                return audio_file
-            else:
+            with yt_dlp.YoutubeDL(config['opts']) as ydl:
+                # Extract info
+                info = ydl.extract_info(url, download=True)
+                
+                if info is None:
+                    continue
+                
+                # Get video ID
+                video_id = info.get('id', 'unknown')
+                
+                # Construct expected filename
+                audio_file = os.path.join(output_dir, f'youtube_audio_{video_id}.mp3')
+                
+                # Check if file exists
+                if os.path.exists(audio_file):
+                    print(f"Successfully downloaded with {config['name']}")
+                    return audio_file
+                
                 # Try alternate naming patterns
                 for pattern in [f'youtube_audio_{video_id}.*', f'*{video_id}*.mp3']:
                     matches = list(Path(output_dir).glob(pattern))
                     if matches:
+                        print(f"Successfully downloaded with {config['name']}")
                         return str(matches[0])
-                
-                raise Exception(f"Downloaded audio file not found: {audio_file}")
+        
+        except Exception as e:
+            last_error = e
+            print(f"Failed with {config['name']}: {str(e)}")
+            continue
     
-    except Exception as e:
-        print(f"Error downloading YouTube audio: {str(e)}")
-        raise Exception(f"Failed to download audio from YouTube: {str(e)}")
+    # All methods failed
+    if last_error:
+        raise Exception(f"Failed to download audio from YouTube after trying all methods. Last error: {str(last_error)}")
+    else:
+        raise Exception("Failed to download audio from YouTube: Unknown error")
 
 def get_video_info(url: str) -> dict:
     """
